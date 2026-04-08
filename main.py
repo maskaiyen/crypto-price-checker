@@ -15,6 +15,7 @@ def fetch_prices(coins):
     params = {
         "ids": ",".join(coins),
         "vs_currencies": "usd",
+        "include_24hr_change": "true",
     }
     response = requests.get(COINGECKO_URL, params=params, timeout=10)
     response.raise_for_status()
@@ -28,7 +29,9 @@ def print_prices(prices):
     for coin in COINS:
         symbol = COIN_SYMBOLS[coin]
         price = prices[coin]["usd"]
-        print(f"  {symbol:4s}  ${price:>12,.2f}")
+        change = prices[coin]["usd_24h_change"]
+        sign = "+" if change >= 0 else ""
+        print(f"  {symbol}: ${price:,.2f} ({sign}{change:.1f}%)")
     print("-" * 30)
 
 
