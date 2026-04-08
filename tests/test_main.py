@@ -1,14 +1,13 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from io import StringIO
 
 import main
 
 
 MOCK_PRICES = {
-    "bitcoin": {"usd": 67863.00},
-    "ethereum": {"usd": 2069.65},
-    "solana": {"usd": 78.54},
+    "bitcoin": {"usd": 83000.00, "usd_24h_change": 2.5},
+    "ethereum": {"usd": 1800.00, "usd_24h_change": -1.2},
+    "solana": {"usd": 120.00, "usd_24h_change": 5.3},
 }
 
 
@@ -23,7 +22,11 @@ def test_fetch_prices_returns_data():
 
     mock_get.assert_called_once_with(
         main.COINGECKO_URL,
-        params={"ids": "bitcoin,ethereum,solana", "vs_currencies": "usd"},
+        params={
+            "ids": "bitcoin,ethereum,solana",
+            "vs_currencies": "usd",
+            "include_24hr_change": "true",
+        },
         timeout=10,
     )
     mock_response.raise_for_status.assert_called_once()
@@ -45,37 +48,30 @@ def test_fetch_prices_raises_on_network_error():
             main.fetch_prices(main.COINS)
 
 
+# --- format_change ---
+
+def test_format_change_positive():
+    assert main.format_change(2.5) == "+2.5%"
+
+def test_format_change_negative():
+    assert main.format_change(-1.2) == "-1.2%"
+
+def test_format_change_zero():
+    assert main.format_change(0.0) == "+0.0%"
+
+
 # --- print_prices ---
 
 def test_print_prices_output(capsys):
-    with patch("main.datetime") as mock_dt:
-        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
-        main.print_prices(MOCK_PRICES)
-
+    main.print_prices(MOCK_PRICES)
     captured = capsys.readouterr()
-    assert "Crypto Prices — 2026-04-07 12:00:00" in captured.out
-    assert "BTC" in captured.out
-    assert "67,863.00" in captured.out
-    assert "ETH" in captured.out
-    assert "2,069.65" in captured.out
-    assert "SOL" in captured.out
-    assert "78.54" in captured.out
-
-
-def test_print_prices_separator(capsys):
-    with patch("main.datetime") as mock_dt:
-        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
-        main.print_prices(MOCK_PRICES)
-
-    captured = capsys.readouterr()
-    assert captured.out.count("-" * 30) == 2
+    assert "BTC: $83,000 (+2.5%)" in captured.out
+    assert "ETH: $1,800 (-1.2%)" in captured.out
+    assert "SOL: $120 (+5.3%)" in captured.out
 
 
 def test_print_prices_coin_order(capsys):
-    with patch("main.datetime") as mock_dt:
-        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
-        main.print_prices(MOCK_PRICES)
-
+    main.print_prices(MOCK_PRICES)
     captured = capsys.readouterr()
     btc_pos = captured.out.index("BTC")
     eth_pos = captured.out.index("ETH")

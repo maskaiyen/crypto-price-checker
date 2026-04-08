@@ -15,21 +15,24 @@ def fetch_prices(coins):
     params = {
         "ids": ",".join(coins),
         "vs_currencies": "usd",
+        "include_24hr_change": "true",
     }
     response = requests.get(COINGECKO_URL, params=params, timeout=10)
     response.raise_for_status()
     return response.json()
 
 
+def format_change(change):
+    sign = "+" if change >= 0 else ""
+    return f"{sign}{change:.1f}%"
+
+
 def print_prices(prices):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"Crypto Prices — {timestamp}")
-    print("-" * 30)
     for coin in COINS:
         symbol = COIN_SYMBOLS[coin]
         price = prices[coin]["usd"]
-        print(f"  {symbol:4s}  ${price:>12,.2f}")
-    print("-" * 30)
+        change = prices[coin]["usd_24h_change"]
+        print(f"{symbol}: ${price:,.0f} ({format_change(change)})")
 
 
 def main():
