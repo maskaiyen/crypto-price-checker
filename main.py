@@ -29,8 +29,8 @@ def format_coin_line(coin: str, price_data: dict[str, Any]) -> str:
     symbol = COIN_SYMBOLS[coin]
     price = price_data["usd"]
     change = price_data["usd_24h_change"]
-    sign = "+" if change > 0 else ""
-    return f"  {symbol}: ${price:,.3f} ({sign}{change:.1f}%)"
+    sign = "+" if change >= 0 else ""
+    return f"  {symbol}: ${price:,.2f} ({sign}{change:.1f}%)"
 
 
 def print_prices(prices: dict[str, Any]) -> None:

@@ -85,6 +85,22 @@ def test_print_prices_change_negative(capsys):
     assert "(-1.2%)" in captured.out
 
 
+def test_print_prices_price_two_decimal_places(capsys):
+    with patch("main.datetime") as mock_dt:
+        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
+        main.print_prices(MOCK_PRICES)
+
+    captured = capsys.readouterr()
+    assert "$83,000.000" not in captured.out
+    assert "$83,000.00 " in captured.out
+
+
+def test_format_coin_line_zero_change():
+    zero_change_data = {"usd": 50000.00, "usd_24h_change": 0.0}
+    result = main.format_coin_line("bitcoin", zero_change_data)
+    assert "(+0.0%)" in result
+
+
 def test_print_prices_separator(capsys):
     with patch("main.datetime") as mock_dt:
         mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
