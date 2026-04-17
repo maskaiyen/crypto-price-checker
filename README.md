@@ -16,6 +16,7 @@ No API key required.
 | HTTP client | `requests` |
 | Output format | JSON (via `json` stdlib) |
 | Testing | `pytest` with `unittest.mock` |
+| Storage | SQLite (via `sqlite3` stdlib + `pandas`) |
 | Scheduling | APScheduler `BackgroundScheduler` |
 | API | CoinGecko Free Public API |
 
@@ -25,7 +26,8 @@ No API key required.
 - **24h change tracking** — includes percentage change over the last 24 hours
 - **JSON output** — structured, timestamped output ready for piping or logging
 - **Data validation** — validates every API response before use; raises a typed `ValidationError` on bad data
-- **Comprehensive test suite** — 32 unit tests covering fetching, formatting, validation logic, scheduling, and error handling
+- **SQLite database storage** — price history stored in a local SQLite database, shared by the dashboard and scheduler
+- **Comprehensive test suite** — 44 unit tests covering fetching, formatting, validation logic, database operations, scheduling, and error handling
 - **Streamlit dashboard** — live price cards with 24h change colouring, historical line chart, and 60-second auto-refresh
 - **Scheduled execution** — background job fetches prices every hour, with an immediate first run and graceful Ctrl+C shutdown
 - **Docker support** — single `docker compose up --build` to run the dashboard in a container with persistent data
@@ -72,7 +74,7 @@ python main.py
 pytest
 ```
 
-All 32 tests use mocked network calls and do not require an internet connection.
+All 44 tests use mocked network calls and do not require an internet connection.
 
 ## Dashboard
 
@@ -90,7 +92,7 @@ An interactive Streamlit dashboard for visualizing live and historical prices.
 streamlit run dashboard.py
 ```
 
-Price history is written to `data/prices.csv` and accumulates across runs.
+Price history is written to `data/prices.db` and accumulates across runs.
 
 ## Scheduler
 
@@ -100,7 +102,7 @@ Price history is written to `data/prices.csv` and accumulates across runs.
 
 - Fetches and validates prices immediately on startup — no waiting for the first interval
 - Re-fetches every hour using APScheduler's `BackgroundScheduler`
-- Appends each snapshot to `data/prices.csv` (shared with the dashboard)
+- Inserts each snapshot into `data/prices.db` (shared with the dashboard)
 - Logs a success line with prices on each run, or an error message if the fetch or validation fails
 - Shuts down gracefully on `Ctrl+C` or `SIGTERM`
 
@@ -127,7 +129,7 @@ docker compose up --build
 
 Open **http://localhost:8501** in your browser.
 
-Price history persists in `./data/prices.csv` on your local machine between container restarts.
+Price history persists in `./data/prices.db` on your local machine between container restarts.
 
 ## Project Structure
 
@@ -135,20 +137,26 @@ Price history persists in `./data/prices.csv` on your local machine between cont
 crypto-price-checker/
 ├── main.py              # CLI entry point — fetch, validate, and print prices as JSON
 ├── validator.py         # ValidationError and validate_prices() for API response checks
+├── database.py          # SQLite layer — init_db, insert_prices, get_history
 ├── dashboard.py         # Streamlit dashboard — price cards, historical chart, auto-refresh
-├── scheduler.py         # Hourly price fetcher — APScheduler job, CSV append, structured logs
+├── scheduler.py         # Hourly price fetcher — APScheduler job, DB insert, structured logs
 ├── Dockerfile           # python:3.11-slim image, exposes port 8501
 ├── docker-compose.yml   # dashboard service with port mapping and data volume
 ├── requirements.txt     # Runtime and test dependencies
 ├── data/
-│   └── prices.csv       # Auto-generated — price snapshots appended on each fetch
+│   └── prices.db        # Auto-generated — SQLite database of price snapshots
 └── tests/
     ├── test_main.py      # Tests for fetching, formatting, and the main pipeline
     ├── test_validator.py # Tests for all validation rules and edge cases
+    ├── test_database.py  # Tests for init_db, insert_prices, get_history, and accumulation
     └── test_scheduler.py # Tests for job success, ValidationError, and network error handling
 ```
 
 ## Design Decisions
+
+### Why SQLite instead of CSV?
+
+CSV is simple but fragile: concurrent writes corrupt it, there is no schema enforcement, and querying historical data requires loading the entire file into memory. SQLite solves all three problems with zero operational overhead — it is a single file, needs no server, and ships with Python's standard library. Using `sqlite3` directly (rather than an ORM) keeps the dependency count low while giving the project a proper relational foundation that can be queried, filtered, and extended without changing the storage format.
 
 ### Why add a validation layer?
 
