@@ -23,7 +23,8 @@ MOCK_ROWS = [
 def test_fetch_job_success_logs_prices(caplog):
     with patch("scheduler.fetch_prices", return_value=MOCK_PRICES), \
          patch("scheduler.validate_prices"), \
-         patch("scheduler.insert_prices", return_value=("2026-04-17 12:00:00", MOCK_ROWS)):
+         patch("scheduler.insert_prices", return_value=("2026-04-17 12:00:00", MOCK_ROWS)), \
+         patch("scheduler.check_and_alert"):
         scheduler.fetch_job()
 
     assert "✅" in caplog.text
@@ -35,10 +36,21 @@ def test_fetch_job_success_logs_prices(caplog):
 def test_fetch_job_success_calls_insert_prices():
     with patch("scheduler.fetch_prices", return_value=MOCK_PRICES), \
          patch("scheduler.validate_prices"), \
-         patch("scheduler.insert_prices", return_value=("2026-04-17 12:00:00", MOCK_ROWS)) as mock_insert:
+         patch("scheduler.insert_prices", return_value=("2026-04-17 12:00:00", MOCK_ROWS)) as mock_insert, \
+         patch("scheduler.check_and_alert"):
         scheduler.fetch_job()
 
     mock_insert.assert_called_once_with(MOCK_PRICES, scheduler.DB_PATH)
+
+
+def test_fetch_job_success_calls_check_and_alert():
+    with patch("scheduler.fetch_prices", return_value=MOCK_PRICES), \
+         patch("scheduler.validate_prices"), \
+         patch("scheduler.insert_prices", return_value=("2026-04-17 12:00:00", MOCK_ROWS)), \
+         patch("scheduler.check_and_alert") as mock_alert:
+        scheduler.fetch_job()
+
+    mock_alert.assert_called_once_with(MOCK_PRICES)
 
 
 # --- fetch_job: ValidationError ---

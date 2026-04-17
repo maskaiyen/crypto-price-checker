@@ -6,6 +6,7 @@ from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from alerter import check_and_alert
 from database import insert_prices
 from main import COINS, fetch_prices
 from validator import ValidationError, validate_prices
@@ -28,6 +29,7 @@ def fetch_job() -> None:
             f"{r['symbol']}=${r['price']:,.0f}" for r in rows
         )
         logger.info("✅ [%s] Fetched prices: %s", timestamp, summary)
+        check_and_alert(prices)
     except ValidationError as exc:
         logger.error("❌ Validation error: %s", exc)
     except Exception as exc:
