@@ -1,6 +1,6 @@
+import json
 import pytest
 from unittest.mock import patch, MagicMock
-from io import StringIO
 
 import main
 
@@ -49,77 +49,60 @@ def test_fetch_prices_raises_on_network_error():
             main.fetch_prices(main.COINS)
 
 
+# --- format_prices_json ---
+
+def test_format_prices_json_is_valid_json():
+    with patch("main.datetime") as mock_dt:
+        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
+        result = main.format_prices_json(MOCK_PRICES)
+
+    parsed = json.loads(result)
+    assert isinstance(parsed, dict)
+
+
+def test_format_prices_json_timestamp():
+    with patch("main.datetime") as mock_dt:
+        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
+        result = main.format_prices_json(MOCK_PRICES)
+
+    parsed = json.loads(result)
+    assert parsed["timestamp"] == "2026-04-07 12:00:00"
+
+
+def test_format_prices_json_values():
+    with patch("main.datetime") as mock_dt:
+        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
+        result = main.format_prices_json(MOCK_PRICES)
+
+    parsed = json.loads(result)
+    assert parsed["prices"]["BTC"]["usd"] == 83000.00
+    assert parsed["prices"]["BTC"]["usd_24h_change"] == 2.5
+    assert parsed["prices"]["ETH"]["usd"] == 1800.00
+    assert parsed["prices"]["ETH"]["usd_24h_change"] == -1.2
+    assert parsed["prices"]["SOL"]["usd"] == 120.00
+    assert parsed["prices"]["SOL"]["usd_24h_change"] == 5.3
+
+
+def test_format_prices_json_all_symbols_present():
+    with patch("main.datetime") as mock_dt:
+        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
+        result = main.format_prices_json(MOCK_PRICES)
+
+    parsed = json.loads(result)
+    assert set(parsed["prices"].keys()) == {"BTC", "ETH", "SOL"}
+
+
 # --- print_prices ---
 
-def test_print_prices_output(capsys):
+def test_print_prices_outputs_json(capsys):
     with patch("main.datetime") as mock_dt:
         mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
         main.print_prices(MOCK_PRICES)
 
     captured = capsys.readouterr()
-    assert "Crypto Prices — 2026-04-07 12:00:00" in captured.out
-    assert "BTC" in captured.out
-    assert "83,000.00" in captured.out
-    assert "ETH" in captured.out
-    assert "1,800.00" in captured.out
-    assert "SOL" in captured.out
-    assert "120.00" in captured.out
-
-
-def test_print_prices_change_positive(capsys):
-    with patch("main.datetime") as mock_dt:
-        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
-        main.print_prices(MOCK_PRICES)
-
-    captured = capsys.readouterr()
-    assert "(+2.5%)" in captured.out
-    assert "(+5.3%)" in captured.out
-
-
-def test_print_prices_change_negative(capsys):
-    with patch("main.datetime") as mock_dt:
-        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
-        main.print_prices(MOCK_PRICES)
-
-    captured = capsys.readouterr()
-    assert "(-1.2%)" in captured.out
-
-
-def test_print_prices_price_two_decimal_places(capsys):
-    with patch("main.datetime") as mock_dt:
-        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
-        main.print_prices(MOCK_PRICES)
-
-    captured = capsys.readouterr()
-    assert "$83,000.000" not in captured.out
-    assert "$83,000.00 " in captured.out
-
-
-def test_format_coin_line_zero_change():
-    zero_change_data = {"usd": 50000.00, "usd_24h_change": 0.0}
-    result = main.format_coin_line("bitcoin", zero_change_data)
-    assert "(+0.0%)" in result
-
-
-def test_print_prices_separator(capsys):
-    with patch("main.datetime") as mock_dt:
-        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
-        main.print_prices(MOCK_PRICES)
-
-    captured = capsys.readouterr()
-    assert captured.out.count("-" * 30) == 2
-
-
-def test_print_prices_coin_order(capsys):
-    with patch("main.datetime") as mock_dt:
-        mock_dt.now.return_value.strftime.return_value = "2026-04-07 12:00:00"
-        main.print_prices(MOCK_PRICES)
-
-    captured = capsys.readouterr()
-    btc_pos = captured.out.index("BTC")
-    eth_pos = captured.out.index("ETH")
-    sol_pos = captured.out.index("SOL")
-    assert btc_pos < eth_pos < sol_pos
+    parsed = json.loads(captured.out)
+    assert parsed["timestamp"] == "2026-04-07 12:00:00"
+    assert "BTC" in parsed["prices"]
 
 
 # --- main ---

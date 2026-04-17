@@ -1,3 +1,4 @@
+import json
 import requests
 from datetime import datetime
 from typing import Any
@@ -24,27 +25,31 @@ def fetch_prices(coins: list[str]) -> dict[str, Any]:
     return response.json()
 
 
-def format_coin_line(coin: str, price_data: dict[str, Any]) -> str:
-    """Format a single coin's price and 24h change as a display string."""
-    symbol = COIN_SYMBOLS[coin]
-    price = price_data["usd"]
-    change = price_data["usd_24h_change"]
-    sign = "+" if change >= 0 else ""
-    return f"  {symbol}: ${price:,.2f} ({sign}{change:.1f}%)"
+def format_prices_json(prices: dict[str, Any]) -> str:
+    """Format prices as a JSON string with timestamp and per-symbol data."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return json.dumps(
+        {
+            "timestamp": timestamp,
+            "prices": {
+                COIN_SYMBOLS[coin]: {
+                    "usd": prices[coin]["usd"],
+                    "usd_24h_change": round(prices[coin]["usd_24h_change"], 1),
+                }
+                for coin in COINS
+            },
+        },
+        indent=2,
+    )
 
 
 def print_prices(prices: dict[str, Any]) -> None:
-    """Print formatted prices for all tracked coins with a timestamp header."""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"Crypto Prices — {timestamp}")
-    print("-" * 30)
-    for coin in COINS:
-        print(format_coin_line(coin, prices[coin]))
-    print("-" * 30)
+    """Print prices as JSON to stdout."""
+    print(format_prices_json(prices))
 
 
 def main() -> None:
-    """Fetch and display current cryptocurrency prices."""
+    """Fetch and display current cryptocurrency prices as JSON."""
     prices = fetch_prices(COINS)
     print_prices(prices)
 
