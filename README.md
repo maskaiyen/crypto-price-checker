@@ -25,6 +25,26 @@ No API key required.
 - **JSON output** — structured, timestamped output ready for piping or logging
 - **Data validation** — validates every API response before use; raises a typed `ValidationError` on bad data
 - **Comprehensive test suite** — unit tests cover fetching, formatting, validation logic, and the full main pipeline
+- **Streamlit dashboard** — live price cards with 24h change colouring, historical line chart, and 60-second auto-refresh
+- **Docker support** — single `docker compose up --build` to run the dashboard in a container with persistent data
+
+## Dashboard
+
+An interactive Streamlit dashboard for visualizing live and historical prices.
+
+**What it shows:**
+
+- **Price cards** for BTC, ETH, and SOL — current USD price with 24h change highlighted in green (positive) or red (negative)
+- **Historical line chart** — one line per coin, plotted from every price snapshot saved since first run
+- **Auto-refresh** — the page reloads every 60 seconds to pull the latest prices
+
+**Run the dashboard:**
+
+```bash
+streamlit run dashboard.py
+```
+
+Price history is written to `data/prices.csv` and accumulates across runs.
 
 ## Installation
 
@@ -62,6 +82,18 @@ python main.py
 }
 ```
 
+## Run with Docker
+
+**Prerequisites:** [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/)
+
+```bash
+docker compose up --build
+```
+
+Open **http://localhost:8501** in your browser.
+
+Price history persists in `./data/prices.csv` on your local machine between container restarts.
+
 ## Running Tests
 
 ```bash
@@ -76,7 +108,12 @@ All tests use mocked network calls and do not require an internet connection.
 crypto-price-checker/
 ├── main.py              # Entry point — orchestrates fetch, validate, and print
 ├── validator.py         # Validation layer — ValidationError and validate_prices()
+├── dashboard.py         # Streamlit dashboard — price cards, historical chart, auto-refresh
+├── Dockerfile           # python:3.11-slim image, exposes port 8501
+├── docker-compose.yml   # dashboard service with port mapping and data volume
 ├── requirements.txt     # Runtime and test dependencies
+├── data/
+│   └── prices.csv       # Auto-generated — price snapshots appended on each fetch
 └── tests/
     ├── test_main.py     # Tests for fetching, formatting, and the main pipeline
     └── test_validator.py # Tests for all validation rules and edge cases
