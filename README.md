@@ -82,6 +82,53 @@ crypto-price-checker/
     └── test_validator.py # Tests for all validation rules and edge cases
 ```
 
+## Dashboard
+
+An interactive Streamlit dashboard is included for visualizing live and historical prices.
+
+**What it shows:**
+
+- **Price cards** for BTC, ETH, and SOL — current USD price with 24h change highlighted in green (positive) or red (negative)
+- **Historical line chart** — one line per coin, plotted from every price snapshot saved since first run
+- **Auto-refresh** — the page reloads every 60 seconds to pull the latest prices
+
+**Run the dashboard:**
+
+```bash
+streamlit run dashboard.py
+```
+
+Price history is written to `data/prices.csv` and accumulates across runs.
+
+## Run with Docker
+
+**Prerequisites:** [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/)
+
+```bash
+docker compose up --build
+```
+
+Open **http://localhost:8501** in your browser.
+
+Price history persists in `./data/prices.csv` on your local machine between container restarts.
+
+## Project Structure
+
+```
+crypto-price-checker/
+├── main.py              # CLI entry point — fetch, validate, and print prices as JSON
+├── validator.py         # ValidationError and validate_prices() for API response checks
+├── dashboard.py         # Streamlit dashboard — price cards, historical chart, auto-refresh
+├── Dockerfile           # python:3.11-slim image, exposes port 8501
+├── docker-compose.yml   # dashboard service with port mapping and data volume
+├── requirements.txt     # Runtime and test dependencies
+├── data/
+│   └── prices.csv       # Auto-generated — price snapshots appended on each fetch
+└── tests/
+    ├── test_main.py     # Tests for fetching, formatting, and the main pipeline
+    └── test_validator.py # Tests for all validation rules and edge cases
+```
+
 ## Design Decisions
 
 ### Why add a validation layer?
