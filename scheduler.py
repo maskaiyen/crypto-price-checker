@@ -1,17 +1,16 @@
-import csv
 import logging
 import signal
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from main import COINS, COIN_SYMBOLS, fetch_prices
+from database import insert_prices
+from main import COINS, fetch_prices
 from validator import ValidationError, validate_prices
 
-DATA_FILE = Path("data/prices.csv")
+DB_PATH = Path("data/prices.db")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,32 +19,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def append_prices(prices: dict) -> None:
-    DATA_FILE.parent.mkdir(exist_ok=True)
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    rows = [
-        {
-            "timestamp": timestamp,
-            "symbol": COIN_SYMBOLS[coin],
-            "price": prices[coin]["usd"],
-            "change_24h": round(prices[coin]["usd_24h_change"], 2),
-        }
-        for coin in COINS
-    ]
-    write_header = not DATA_FILE.exists()
-    with DATA_FILE.open("a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["timestamp", "symbol", "price", "change_24h"])
-        if write_header:
-            writer.writeheader()
-        writer.writerows(rows)
-    return timestamp, rows
-
-
 def fetch_job() -> None:
     try:
         prices = fetch_prices(COINS)
         validate_prices(prices)
-        timestamp, rows = append_prices(prices)
+        timestamp, rows = insert_prices(prices, DB_PATH)
         summary = ", ".join(
             f"{r['symbol']}=${r['price']:,.0f}" for r in rows
         )
@@ -61,7 +39,6 @@ def main() -> None:
     scheduler.add_job(fetch_job, "interval", hours=1, id="fetch_prices")
     scheduler.start()
 
-    # Run immediately without waiting for the first interval
     fetch_job()
 
     def _shutdown(signum, frame):
