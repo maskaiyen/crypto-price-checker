@@ -16,6 +16,7 @@ No API key required.
 | HTTP client | `requests` |
 | Output format | JSON (via `json` stdlib) |
 | Testing | `pytest` with `unittest.mock` |
+| Scheduling | APScheduler `BackgroundScheduler` |
 | API | CoinGecko Free Public API |
 
 ## Features
@@ -24,7 +25,10 @@ No API key required.
 - **24h change tracking** — includes percentage change over the last 24 hours
 - **JSON output** — structured, timestamped output ready for piping or logging
 - **Data validation** — validates every API response before use; raises a typed `ValidationError` on bad data
-- **Comprehensive test suite** — unit tests cover fetching, formatting, validation logic, and the full main pipeline
+- **Comprehensive test suite** — 32 unit tests covering fetching, formatting, validation logic, scheduling, and error handling
+- **Streamlit dashboard** — live price cards with 24h change colouring, historical line chart, and 60-second auto-refresh
+- **Scheduled execution** — background job fetches prices every hour, with an immediate first run and graceful Ctrl+C shutdown
+- **Docker support** — single `docker compose up --build` to run the dashboard in a container with persistent data
 
 ## Installation
 
@@ -68,23 +72,11 @@ python main.py
 pytest
 ```
 
-All tests use mocked network calls and do not require an internet connection.
-
-## Project Structure
-
-```
-crypto-price-checker/
-├── main.py              # Entry point — orchestrates fetch, validate, and print
-├── validator.py         # Validation layer — ValidationError and validate_prices()
-├── requirements.txt     # Runtime and test dependencies
-└── tests/
-    ├── test_main.py     # Tests for fetching, formatting, and the main pipeline
-    └── test_validator.py # Tests for all validation rules and edge cases
-```
+All 32 tests use mocked network calls and do not require an internet connection.
 
 ## Dashboard
 
-An interactive Streamlit dashboard is included for visualizing live and historical prices.
+An interactive Streamlit dashboard for visualizing live and historical prices.
 
 **What it shows:**
 
@@ -99,6 +91,31 @@ streamlit run dashboard.py
 ```
 
 Price history is written to `data/prices.csv` and accumulates across runs.
+
+## Scheduler
+
+`scheduler.py` runs as a long-lived process that fetches and stores prices automatically.
+
+**What it does:**
+
+- Fetches and validates prices immediately on startup — no waiting for the first interval
+- Re-fetches every hour using APScheduler's `BackgroundScheduler`
+- Appends each snapshot to `data/prices.csv` (shared with the dashboard)
+- Logs a success line with prices on each run, or an error message if the fetch or validation fails
+- Shuts down gracefully on `Ctrl+C` or `SIGTERM`
+
+**Run:**
+
+```bash
+python scheduler.py
+```
+
+**Example log output:**
+
+```
+✅ [2026-04-17 12:00:00] Fetched prices: BTC=$83,000, ETH=$1,800, SOL=$120
+Scheduler running. Next fetch in 1 hour. Press Ctrl+C to stop.
+```
 
 ## Run with Docker
 
@@ -119,14 +136,16 @@ crypto-price-checker/
 ├── main.py              # CLI entry point — fetch, validate, and print prices as JSON
 ├── validator.py         # ValidationError and validate_prices() for API response checks
 ├── dashboard.py         # Streamlit dashboard — price cards, historical chart, auto-refresh
+├── scheduler.py         # Hourly price fetcher — APScheduler job, CSV append, structured logs
 ├── Dockerfile           # python:3.11-slim image, exposes port 8501
 ├── docker-compose.yml   # dashboard service with port mapping and data volume
 ├── requirements.txt     # Runtime and test dependencies
 ├── data/
 │   └── prices.csv       # Auto-generated — price snapshots appended on each fetch
 └── tests/
-    ├── test_main.py     # Tests for fetching, formatting, and the main pipeline
-    └── test_validator.py # Tests for all validation rules and edge cases
+    ├── test_main.py      # Tests for fetching, formatting, and the main pipeline
+    ├── test_validator.py # Tests for all validation rules and edge cases
+    └── test_scheduler.py # Tests for job success, ValidationError, and network error handling
 ```
 
 ## Design Decisions
