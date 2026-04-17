@@ -3,6 +3,8 @@ import requests
 from datetime import datetime
 from typing import Any
 
+from validator import validate_prices
+
 
 COINGECKO_URL = "https://api.coingecko.com/api/v3/simple/price"
 COINS = ["bitcoin", "ethereum", "solana"]
@@ -51,6 +53,7 @@ def print_prices(prices: dict[str, Any]) -> None:
 def main() -> None:
     """Fetch and display current cryptocurrency prices as JSON."""
     prices = fetch_prices(COINS)
+    validate_prices(prices)
     print_prices(prices)
 
 
