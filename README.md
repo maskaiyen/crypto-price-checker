@@ -18,6 +18,7 @@ No API key required.
 | Testing | `pytest` with `unittest.mock` |
 | Storage | SQLite (via `sqlite3` stdlib + `pandas`) |
 | Scheduling | APScheduler `BackgroundScheduler` |
+| Email alerts | `smtplib` stdlib, Gmail SMTP |
 | API | CoinGecko Free Public API |
 
 ## Features
@@ -27,7 +28,8 @@ No API key required.
 - **JSON output** — structured, timestamped output ready for piping or logging
 - **Data validation** — validates every API response before use; raises a typed `ValidationError` on bad data
 - **SQLite database storage** — price history stored in a local SQLite database, shared by the dashboard and scheduler
-- **Comprehensive test suite** — 44 unit tests covering fetching, formatting, validation logic, database operations, scheduling, and error handling
+- **Email alerts** — sends a Gmail notification when any coin's 24h change exceeds ±5%; skips silently if credentials are not configured
+- **Comprehensive test suite** — 62 unit tests covering fetching, formatting, validation, database, scheduling, alerting, and error handling
 - **Streamlit dashboard** — live price cards with 24h change colouring, historical line chart, and 60-second auto-refresh
 - **Scheduled execution** — background job fetches prices every hour, with an immediate first run and graceful Ctrl+C shutdown
 - **Docker support** — single `docker compose up --build` to run the dashboard in a container with persistent data
@@ -74,7 +76,7 @@ python main.py
 pytest
 ```
 
-All 44 tests use mocked network calls and do not require an internet connection.
+All 62 tests use mocked network calls and do not require an internet connection.
 
 ## Dashboard
 
@@ -119,6 +121,31 @@ python scheduler.py
 Scheduler running. Next fetch in 1 hour. Press Ctrl+C to stop.
 ```
 
+## Email Alerts
+
+`alerter.py` monitors each fetched price and sends a Gmail notification when any coin's 24-hour change meets or exceeds the alert threshold (default ±5%).
+
+**What it does:**
+
+- After every successful fetch, checks each coin's 24h change against `ALERT_THRESHOLD = 5.0`
+- Sends an email via Gmail SMTP (port 587, STARTTLS) when `abs(change_24h) >= 5.0%`
+- Logs a confirmation line for each alert sent
+- Skips silently if any required environment variable is missing — no crash, no noise
+
+**Configuration:**
+
+Set the following environment variables before running `scheduler.py`:
+
+```bash
+export ALERT_EMAIL_FROM=your@gmail.com
+export ALERT_EMAIL_TO=recipient@gmail.com
+export ALERT_EMAIL_PASSWORD=your_app_password
+```
+
+> **Note:** `ALERT_EMAIL_PASSWORD` must be a [Gmail App Password](https://support.google.com/accounts/answer/185833), not your regular account password. App Passwords require 2-Step Verification to be enabled on the sending account.
+
+If any variable is not set, alerts are silently skipped and a warning is logged. The rest of the scheduler pipeline is unaffected.
+
 ## Run with Docker
 
 **Prerequisites:** [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/)
@@ -139,7 +166,8 @@ crypto-price-checker/
 ├── validator.py         # ValidationError and validate_prices() for API response checks
 ├── database.py          # SQLite layer — init_db, insert_prices, get_history
 ├── dashboard.py         # Streamlit dashboard — price cards, historical chart, auto-refresh
-├── scheduler.py         # Hourly price fetcher — APScheduler job, DB insert, structured logs
+├── alerter.py           # Email alert — threshold check, Gmail SMTP, env-var config
+├── scheduler.py         # Hourly price fetcher — APScheduler job, DB insert, alerts, logs
 ├── Dockerfile           # python:3.11-slim image, exposes port 8501
 ├── docker-compose.yml   # dashboard service with port mapping and data volume
 ├── requirements.txt     # Runtime and test dependencies
@@ -149,10 +177,15 @@ crypto-price-checker/
     ├── test_main.py      # Tests for fetching, formatting, and the main pipeline
     ├── test_validator.py # Tests for all validation rules and edge cases
     ├── test_database.py  # Tests for init_db, insert_prices, get_history, and accumulation
-    └── test_scheduler.py # Tests for job success, ValidationError, and network error handling
+    ├── test_scheduler.py # Tests for job success, ValidationError, and network error handling
+    └── test_alerter.py   # Tests for threshold logic, SMTP calls, and env-var skip behaviour
 ```
 
 ## Design Decisions
+
+### Why a fixed threshold for alerts?
+
+The alert threshold (`ALERT_THRESHOLD = 5.0`) is defined as a module-level constant rather than a command-line flag or config file entry. A 5% move in 24 hours is a widely recognised signal of meaningful volatility for large-cap assets — small enough to catch real events, large enough to avoid noise from normal intraday fluctuation. Keeping the threshold as a named constant in `alerter.py` makes it trivially easy to change in one place without touching the calling code. The `should_alert` function is kept pure (no I/O, no side effects) so it can be unit-tested exhaustively without mocking, and `send_alert` handles the environment-variable check itself so callers never need to guard against missing credentials.
 
 ### Why SQLite instead of CSV?
 
