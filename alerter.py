@@ -5,6 +5,8 @@ from datetime import datetime
 from email.message import EmailMessage
 from typing import Any
 
+import requests
+
 from main import COINS, COIN_SYMBOLS
 
 ALERT_THRESHOLD = 5.0
@@ -53,9 +55,27 @@ def send_alert(symbol: str, price: float, change_24h: float) -> None:
     logger.info("📧 Alert sent for %s (%s%.1f%%)", symbol, sign, abs(change_24h))
 
 
+def send_slack_alert(symbol: str, price: float, change_24h: float) -> None:
+    webhook_url = os.environ.get("SLACK_WEBHOOK_URL")
+
+    if not webhook_url:
+        logger.warning("Slack alert skipped for %s: SLACK_WEBHOOK_URL is not set.", symbol)
+        return
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    text = (
+        f"🚨 *Crypto Alert*\n"
+        f"*{symbol}*: ${price:,.2f} ({change_24h:+.1f}%)\n"
+        f"Time: {timestamp}"
+    )
+    requests.post(webhook_url, json={"text": text}, timeout=10)
+    logger.info("💬 Slack alert sent for %s (%+.1f%%)", symbol, change_24h)
+
+
 def check_and_alert(prices: dict[str, Any]) -> None:
     for coin in COINS:
         symbol = COIN_SYMBOLS[coin]
         change_24h = prices[coin]["usd_24h_change"]
         if should_alert(symbol, change_24h):
             send_alert(symbol, prices[coin]["usd"], change_24h)
+            send_slack_alert(symbol, prices[coin]["usd"], change_24h)
